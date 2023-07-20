@@ -1,4 +1,6 @@
 ﻿using LockOnPlugin.Core;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -67,7 +69,7 @@ namespace LockOnPlugin.Koikatu
             prevCharaHotkey.KeyDownAction(() => CharaSwitch(false));
             nextCharaHotkey.KeyDownAction(() => CharaSwitch(true));
 
-            if(lockOnTarget && CameraEnabled)
+            if (lockOnTarget && CameraEnabled)
             {
                 if(Input.GetMouseButton(0) && Input.GetMouseButton(1))
                 {
@@ -82,7 +84,7 @@ namespace LockOnPlugin.Koikatu
                 else if(Input.GetMouseButton(1))
                 {
                     float x = Input.GetAxis("Mouse X");
-                    if(Input.GetKey(KeyCode.LeftControl))
+                    if(Input.GetKey(LockOnPluginCore.CameraTiltKey.Value.MainKey))
                     {
                         Guitime.angle = 0.1f;
                         if(Mathf.Abs(x) > 0f)
@@ -93,10 +95,10 @@ namespace LockOnPlugin.Koikatu
                             CameraAngle = new Vector3(CameraAngle.x, CameraAngle.y, newAngle);
                         }
                     }
-                    else if(Input.GetKey(KeyCode.LeftShift))
+                    else if (Input.GetKey(LockOnPluginCore.CameraFovKey.Value.MainKey))
                     {
                         Guitime.fov = 0.1f;
-                        if(Mathf.Abs(x) > 0f)
+                        if (Mathf.Abs(x) > 0f)
                         {
                             //fov adjustment
                             float newFov = CameraFov + x;
@@ -123,30 +125,57 @@ namespace LockOnPlugin.Koikatu
                     }
                 }
 
-                bool RightArrow = Input.GetKey(KeyCode.RightArrow), LeftArrow = Input.GetKey(KeyCode.LeftArrow);
-                bool UpArrow = Input.GetKey(KeyCode.UpArrow), DownArrow = Input.GetKey(KeyCode.DownArrow);
-                bool PageUp = Input.GetKey(KeyCode.PageUp), PageDown = Input.GetKey(KeyCode.PageDown);
+                bool lockMoveRight = Input.GetKey(LockOnPluginCore.LockMoveRightKey.Value.MainKey);
+                bool lockMoveLeft = Input.GetKey(LockOnPluginCore.LockMoveLeftKey.Value.MainKey);
+                bool lockMoveForward = Input.GetKey(LockOnPluginCore.LockMoveForwardKey.Value.MainKey);
+                bool lockMoveBackward = Input.GetKey(LockOnPluginCore.LockMoveBackwardKey.Value.MainKey);
+                bool lockMoveUp = Input.GetKey(LockOnPluginCore.LockMoveUpKey.Value.MainKey);
+                bool lockMoveDown = Input.GetKey(LockOnPluginCore.LockMoveDownKey.Value.MainKey);
 
-                if(!InputFieldSelected && (RightArrow || LeftArrow || UpArrow || DownArrow || PageUp || PageDown))
+                if(!InputFieldSelected && (lockMoveRight || lockMoveLeft || lockMoveForward || lockMoveBackward || lockMoveUp || lockMoveDown))
                 {
                     reduceOffset = false;
                     offsetKeyHeld += Time.deltaTime / 3f;
-                    if(offsetKeyHeld > 1f) offsetKeyHeld = 1f;
+                    if (offsetKeyHeld > 1f)
+                    {
+                        offsetKeyHeld = 1f;
+                    }
                     float speed = Time.deltaTime * Mathf.Lerp(0.2f, 2f, offsetKeyHeld);
 
-                    if(RightArrow) targetOffsetSize += CameraRight * speed;
-                    else if(LeftArrow) targetOffsetSize += CameraRight * -speed;
+                    if (lockMoveRight)
+                    {
+                        targetOffsetSize += CameraRight * speed;
+                    }
+                    else if (lockMoveLeft)
+                    {
+                        targetOffsetSize += CameraRight * -speed;
+                    }
 
-                    if(UpArrow) targetOffsetSize += CameraForward * speed;
-                    else if(DownArrow) targetOffsetSize += CameraForward * -speed;
+                    if (lockMoveForward)
+                    {
+                        targetOffsetSize += CameraForward * speed;
+                    }
+                    else if (lockMoveBackward)
+                    {
+                        targetOffsetSize += CameraForward * -speed;
+                    }
 
-                    if(PageUp) targetOffsetSize += CameraUp * speed;
-                    else if(PageDown) targetOffsetSize += CameraUp * -speed;
+                    if (lockMoveUp)
+                    {
+                        targetOffsetSize += CameraUp * speed;
+                    }
+                    else if (lockMoveDown)
+                    {
+                        targetOffsetSize += CameraUp * -speed;
+                    }
                 }
                 else
                 {
                     offsetKeyHeld -= Time.deltaTime * 2f;
-                    if(offsetKeyHeld < 0f) offsetKeyHeld = 0f;
+                    if (offsetKeyHeld < 0f)
+                    {
+                        offsetKeyHeld = 0f;
+                    }
                 }
 
                 if(reduceOffset)
@@ -211,55 +240,114 @@ namespace LockOnPlugin.Koikatu
             }
         }
 
-        private static bool DebugGUI(float screenWidthMult, float screenHeightMult, float width, float height, string msg)
+        private static void DebugGUI(float screenWidthMult, float screenHeightMult, float width, float height, string msg)
         {
+            var guiStyle = GUI.skin.button;
+            var textContent = new GUIContent(msg);
+            var textSize = guiStyle.CalcSize(textContent);
+            width = textSize.x;
+            height = textSize.y;
+
             float xpos = Screen.width * screenWidthMult - width / 2f;
             float ypos = Screen.height * screenHeightMult - height / 2f;
             xpos = Mathf.Clamp(xpos, 0f, Screen.width - width);
             ypos = Mathf.Clamp(ypos, 0f, Screen.height - height);
-            return GUI.Button(new Rect(xpos, ypos, width, height), msg);
+            GUI.Button(new Rect(xpos, ypos, width, height), textContent);
+        }
+
+        protected GameObject NextLockOnTarget(List<GameObject> targets = null)
+        {
+            if (targets == null)
+            {
+                if (currentCharaInfo == null)
+                {
+                    Console.WriteLine($"NextLockOnTarget: currentCharaInfo is null");
+                    return null;
+                }
+
+                targets = CameraTargetManager.GetTargetManager(currentCharaInfo)?.GetTargets();
+
+                if (targets == null)
+                {
+                    Console.WriteLine($"NextLockOnTarget: targets is null");
+                    return null;
+                }
+            }
+
+            if (targets.Count <= 0)
+            {
+                Console.WriteLine($"NextLockOnTarget: targets is empty");
+                return null;
+            }
+
+            if (lockOnTarget != null)
+            {
+                for (int i = 0; i < targets.Count; i++)
+                {
+                    if (lockOnTarget == targets[i])
+                    {
+                        int next = i + 1 > targets.Count - 1 ? 0 : i + 1;
+                        return targets[next];
+                    }
+                }
+            }
+
+            return targets[0];
+        }
+
+        protected GameObject FirstLockOnTarget(List<GameObject> targets = null)
+        {
+            if (targets == null)
+            {
+                if (currentCharaInfo == null)
+                {
+                    Console.WriteLine($"FirstLockOnTarget: currentCharaInfo is null");
+                    return null;
+                }
+
+                targets = CameraTargetManager.GetTargetManager(currentCharaInfo)?.GetTargets();
+
+                if (targets == null)
+                {
+                    Console.WriteLine($"FirstLockOnTarget: targets is null");
+                    return null;
+                }
+            }
+
+            if (targets.Count <= 0)
+            {
+                Console.WriteLine($"FirstLockOnTarget: targets is empty");
+                return null;
+            }
+
+            return targets[0];
         }
 
         protected virtual bool LockOn()
         {
-            if(currentCharaInfo)
+            if (currentCharaInfo)
             {
                 var targets = CameraTargetManager.GetTargetManager(currentCharaInfo).GetTargets();
 
-                if(shouldResetLock)
+                if (shouldResetLock)
                 {
                     shouldResetLock = false;
-                    return LockOn(targets[0]);
+                    return LockOn(FirstLockOnTarget(targets));
                 }
 
-                if(reduceOffset)
+                if (reduceOffset)
                 {
                     CameraTargetPos += targetOffsetSize;
                     targetOffsetSize = new Vector3();
                 }
-                else if(targetOffsetSize.magnitude > 0f)
+                else if (targetOffsetSize.magnitude > 0f)
                 {
                     reduceOffset = true;
+                    Guitime.InfoMsg($"Reset offset. Still locked to \"{lockOnTarget.name}\".");
                     return true;
                 }
 
-                if(!lockOnTarget)
-                {
-                    return LockOn(targets[0]);
-                }
-                else
-                {
-                    for(int i = 0; i < targets.Count; i++)
-                    {
-                        if(lockOnTarget == targets[i])
-                        {
-                            int next = i + 1 > targets.Count - 1 ? 0 : i + 1;
-                            return LockOn(targets[next]);
-                        }
-                    }
-
-                    return LockOn(targets[0]);
-                }
+                return LockOn(NextLockOnTarget(targets));
             }
 
             return false;
@@ -293,10 +381,16 @@ namespace LockOnPlugin.Koikatu
         {
             if(target)
             {
-                if(resetOffset) reduceOffset = true;
+                if (resetOffset)
+                {
+                    reduceOffset = true;
+                }
                 lockedOn = true;
                 lockOnTarget = target;
-                if(lastTargetPos == null) lastTargetPos = LockOnTargetPos + targetOffsetSize;
+                if (lastTargetPos == null)
+                {
+                    lastTargetPos = LockOnTargetPos + targetOffsetSize;
+                }
                 CameraMoveSpeed = 0f;
                 Guitime.InfoMsg("Locked to \"" + lockOnTarget.name + "\"");
                 return true;
